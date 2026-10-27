@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reset password — Yi Moment · 一念</title>
+<style>
+  body { font-family: -apple-system, "Helvetica Neue", "PingFang TC", sans-serif; background:#F1ECDE; color:#1B1A17; max-width:420px; margin:10vh auto; padding:0 24px; line-height:1.6; }
+  h1 { font-family: Georgia, "Songti TC", serif; font-size:26px; border-bottom:2px solid #1B1A17; padding-bottom:8px; }
+  label { display:block; font-size:11px; letter-spacing:1.5px; color:#A73424; margin:18px 0 6px; text-transform:uppercase; }
+  input { width:100%; box-sizing:border-box; padding:12px; font-size:16px; border:1px solid #1B1A17; background:#F1ECDE; color:#1B1A17; border-radius:0; }
+  button { margin-top:22px; width:100%; padding:14px; font-size:15px; letter-spacing:1.5px; background:#1B1A17; color:#F1ECDE; border:0; border-radius:0; cursor:pointer; }
+  button:disabled { opacity:.5; }
+  .msg { margin-top:16px; font-size:14px; }
+  .err { color:#A73424; }
+  .ok { font-size:40px; color:#A73424; text-align:center; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<h1>Reset password<br>重設密碼</h1>
+
+<p id="loading">Checking your link… 正在檢查連結…</p>
+
+<form id="form" class="hidden">
+  <label for="pw">New password 新密碼</label>
+  <input id="pw" type="password" minlength="6" autocomplete="new-password" required>
+  <label for="pw2">Confirm password 確認密碼</label>
+  <input id="pw2" type="password" minlength="6" autocomplete="new-password" required>
+  <button id="btn" type="submit">Save new password 儲存新密碼</button>
+  <p id="formerr" class="msg err"></p>
+</form>
+
+<div id="done" class="hidden">
+  <p class="ok">✓</p>
+  <p>Your password has been updated. Return to the Yi Moment app and log in with your new password.</p>
+  <p>密碼已更新。請回到「一念 Yi Moment」App，用新密碼登入。</p>
+</div>
+
+<div id="invalid" class="hidden">
+  <p class="err">This reset link is invalid or has expired.</p>
+  <p class="err">這個重設連結無效或已過期。</p>
+  <p>Open the app, tap “Forgot password?” and request a new link. 請回到 App，點「忘記密碼？」重新索取連結。</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // Public (publishable) client key — the same one that ships inside the app.
+  var SUPABASE_URL = 'https://rswacesgmkamoezqimqp.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_0jnKi_GStOrrzvOtl1Lo9Q_OU7jZbBY';
+  var client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { detectSessionInUrl: true, persistSession: false, autoRefreshToken: false }
+  });
+
+  function show(id) {
+    ['loading', 'form', 'done', 'invalid'].forEach(function (x) {
+      document.getElementById(x).classList.toggle('hidden', x !== id);
+    });
+  }
+
+  // Supabase puts failures (expired / already-used link) in the URL hash.
+  if (location.hash.indexOf('error') !== -1) {
+    show('invalid');
+  } else {
+    var ready = false;
+    client.auth.onAuthStateChange(function (event) {
+      if (event === 'PASSWORD_RECOVERY') { ready = true; show('form'); }
+    });
+    // If no recovery session appears, the link was missing/invalid.
+    setTimeout(function () { if (!ready) show('invalid'); }, 4000);
+  }
+
+  document.getElementById('form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var pw = document.getElementById('pw').value;
+    var pw2 = document.getElementById('pw2').value;
+    var err = document.getElementById('formerr');
+    err.textContent = '';
+    if (pw.length < 6) { err.textContent = 'Password must be at least 6 characters. 密碼至少 6 個字元。'; return; }
+    if (pw !== pw2) { err.textContent = 'Passwords do not match. 兩次輸入的密碼不一致。'; return; }
+    var btn = document.getElementById('btn');
+    btn.disabled = true;
+    var res = await client.auth.updateUser({ password: pw });
+    if (res.error) {
+      err.textContent = res.error.message;
+      btn.disabled = false;
+      return;
+    }
+    await client.auth.signOut();
+    show('done');
+  });
+</script>
+</body>
+</html>
